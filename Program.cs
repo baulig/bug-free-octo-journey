@@ -34,8 +34,10 @@ using System.Threading.Tasks;
 //
 // Add the following to your /etc/hosts:
 //
-// 127.0.0.1	broken-localhost
-// 0.0.0.0		broken-localhost
+// 0.0.0.0 broken-localhost
+//
+// On the Mac, after editing the /etc/hosts, you also need to do
+//   sudo killall -HUP mDNSResponder
 //
 
 namespace SocketTest
@@ -83,10 +85,10 @@ namespace SocketTest
 #endif
 		}
 
-		static async Task TestHttpClient ()
+		static Task TestHttpClient ()
 		{
 			var client = new HttpClient ();
-			await client.GetAsync ("http://broken-localhost:8888/").ConfigureAwait (false);
+			return client.GetAsync ("http://broken-localhost:8888/");
 		}
 
 		class MyArgs : SocketAsyncEventArgs
@@ -137,14 +139,5 @@ namespace SocketTest
 				}
 			}
 		}
-
-		class BrokenDnsEndPoint : DnsEndPoint
-		{
-			public BrokenDnsEndPoint ()
-				: base ("localhost", 8888)
-			{ }
-		}
-
-
 	}
 }
