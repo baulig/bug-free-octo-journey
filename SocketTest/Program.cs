@@ -44,19 +44,20 @@ namespace SocketTest
 {
 	class MainClass
 	{
-		public static Task Main ()
+		public static void Main ()
 		{
-			return TestHttpClient ();
+			TestSocket ();
 		}
 
 		static void TestSocket ()
 		{
 			var ep = new DnsEndPoint ("broken-localhost", 8888);
+			var ipep = new IPEndPoint (IPAddress.Any, 8888);
 			var args = new SocketAsyncEventArgs (); // new ConnectEventArgs ();
 			args.RemoteEndPoint = ep;
 
 			args.Completed += (_, __) => {
-				Console.Error.WriteLine ($"ON COMPLETED: {args.SocketError}");
+				Console.Error.WriteLine ($"ON COMPLETED: {args} {args.SocketError}");
 			};
 
 //			var socket = new Socket (SocketType.Stream, ProtocolType.Tcp);
