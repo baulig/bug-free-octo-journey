@@ -26,18 +26,31 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+
+//
+// Add the following to your /etc/hosts:
+//
+// 127.0.0.1	broken-localhost
+// 0.0.0.0		broken-localhost
+//
 
 namespace SocketTest
 {
 	class MainClass
 	{
-		public static async Task Main ()
+		public static Task Main ()
 		{
-			var ep = new DnsEndPoint ("localhost", 8888);
-			var args = new ConnectEventArgs ();
+			return TestHttpClient ();
+		}
+
+		static void TestSocket ()
+		{
+			var ep = new DnsEndPoint ("broken-localhost", 8888);
+			var args = new SocketAsyncEventArgs (); // new ConnectEventArgs ();
 			args.RemoteEndPoint = ep;
 
 			args.Completed += (_, __) => {
@@ -51,6 +64,11 @@ namespace SocketTest
 			var result = Socket.ConnectAsync (SocketType.Stream, ProtocolType.Tcp, args);
 			Console.WriteLine ($"CONNECT ASYNC: {result}");
 
+			Thread.Sleep (50000);
+
+			Environment.Exit (255);
+
+#if MARTIN_FIXME
 			var cts = new CancellationTokenSource ();
 			cts.CancelAfter (2500);
 			var cancellationToken = cts.Token;
@@ -62,6 +80,13 @@ namespace SocketTest
 			}
 
 			Thread.Sleep (50000);
+#endif
+		}
+
+		static async Task TestHttpClient ()
+		{
+			var client = new HttpClient ();
+			await client.GetAsync ("http://broken-localhost:8888/").ConfigureAwait (false);
 		}
 
 		class MyArgs : SocketAsyncEventArgs
@@ -111,6 +136,13 @@ namespace SocketTest
 						break;
 				}
 			}
+		}
+
+		class BrokenDnsEndPoint : DnsEndPoint
+		{
+			public BrokenDnsEndPoint ()
+				: base ("localhost", 8888)
+			{ }
 		}
 
 
