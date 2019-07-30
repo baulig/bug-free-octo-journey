@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 
 namespace DotNetTest
 {
-	class Program
+	public static class Assert
 	{
-		public static void Main ()
+		public static void Fail (string message)
 		{
-			MartinTest.Run ();
+			throw new NotSupportedException ($"ASSERTION FAILED: {message}");
 		}
 	}
 }

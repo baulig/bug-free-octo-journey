@@ -46,7 +46,8 @@ namespace SocketTest
 	{
 		public static void Main ()
 		{
-			TestSocket ();
+			// TestSocket ();
+			DotNetTest.MartinTest.Run ();
 		}
 
 		static void TestSocket ()
