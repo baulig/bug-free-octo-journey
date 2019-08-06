@@ -11,9 +11,7 @@ namespace DotNetTest
 	{
 		public static void Run ()
 		{
-			// return TestHttpClient ();
-			// TestSocket ();
-			TestSocket3 ();
+			TestSocket4 ();
 		}
 
 		static Task TestHttpClient ()
@@ -193,5 +191,24 @@ namespace DotNetTest
 			if (error != null)
 				throw error;
 		}
+
+		static void TestSocket4 ()
+		{
+			var mre = new ManualResetEvent (false);
+
+			var endPoint = new DnsEndPoint ("microsoft.com", 443);
+			var socket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+			var socketArgs = new SocketAsyncEventArgs ();
+			socketArgs.RemoteEndPoint = endPoint;
+			socketArgs.Completed += (sender, e) => mre.Set ();
+
+			var pending = socket.ConnectAsync (socketArgs);
+			Console.Error.WriteLine ($"PENDING: {pending}");
+
+			var res = mre.WaitOne (10000);
+			Console.Error.WriteLine ($"RESULT: {res}");
+		}
+
 	}
 }
