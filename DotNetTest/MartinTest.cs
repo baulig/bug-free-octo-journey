@@ -1,11 +1,14 @@
 ﻿using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
+using MonoTests.Helpers;
 
 namespace DotNetTest
 {
@@ -222,17 +225,61 @@ namespace DotNetTest
 
 		static void TestHttpListener ()
 		{
-			var listener = new HttpListener ();
-			listener.Prefixes.Add ("http://*:8080/");
+			HttpListener listener = NetworkHelpers.CreateAndStartHttpListener ("http://localhost:", out var port, "/", out var uri);
 
-			listener.Start ();
-			var context = listener.GetContext ();
+			IPEndPoint expectedIpEndPoint = CreateListenerRequest (listener, uri);
 
-			var response = context.Response;
-			response.Headers.Add ("X-Custom-Header", "A");
-			response.Headers.Add ("X-Custom-Header", "B");
+			var first = CreateListenerRequest (listener, uri);
+			var second = CreateListenerRequest (listener, uri);
 
-			response.Close ();
+			Console.Error.WriteLine ($"TEST HTTP LISTENER: {expectedIpEndPoint} {first} {second}");
 		}
+
+		static IPEndPoint CreateListenerRequest (HttpListener listener, string uri)
+		{
+			IPEndPoint ipEndPoint = null;
+			var mre = new ManualResetEventSlim ();
+			listener.BeginGetContext (result => {
+				ipEndPoint = ListenerCallback (result);
+				mre.Set ();
+			}, listener);
+
+			var request = (HttpWebRequest)WebRequest.Create (uri);
+			request.Method = "POST";
+			request.KeepAlive = true;
+
+			// We need to write something
+			request.GetRequestStream ().Write (new byte[] { (byte)'a' }, 0, 1);
+			request.GetRequestStream ().Dispose ();
+
+			// Send request, socket is created or reused.
+			var response = request.GetResponse ();
+
+//			using (var rs = response.GetResponseStream ())
+//			using (var reader = new StreamReader (rs)) {
+//				reader.ReadToEnd ();
+// n			}
+
+			// Close response so socket can be reused.
+			response.Close ();
+
+			mre.Wait ();
+
+			return ipEndPoint;
+		}
+
+		static IPEndPoint ListenerCallback (IAsyncResult result)
+		{
+			var listener = (HttpListener)result.AsyncState;
+			var context = listener.EndGetContext (result);
+			var clientEndPoint = context.Request.RemoteEndPoint;
+
+			// Get a response stream and write the response to it.
+			context.Response.ContentLength64 = 0;
+			context.Response.Close ();
+
+			return clientEndPoint;
+		}
+
 	}
 }
