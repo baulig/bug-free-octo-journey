@@ -4,14 +4,20 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace DotNetTest
 {
 	public static class MartinTest
 	{
+		// Ports 8 and 8887 are unassigned as per https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.txt
+		const int UnusedPort = 8;
+		const int UnusedBindablePort = 8887;
+
 		public static void Run ()
 		{
-			TestSocket4 ();
+			TestHttpListener ();
 		}
 
 		static Task TestHttpClient ()
@@ -194,21 +200,39 @@ namespace DotNetTest
 
 		static void TestSocket4 ()
 		{
-			var mre = new ManualResetEvent (false);
+			var endPoint = new DnsEndPoint ("localhost", 8080, AddressFamily.Unspecified);
 
-			var endPoint = new DnsEndPoint ("microsoft.com", 443);
-			var socket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			var args = new SocketAsyncEventArgs ();
+			args.Completed += Args_Completed;
+			args.RemoteEndPoint = endPoint;
 
-			var socketArgs = new SocketAsyncEventArgs ();
-			socketArgs.RemoteEndPoint = endPoint;
-			socketArgs.Completed += (sender, e) => mre.Set ();
+//			var pending = Socket.ConnectAsync (SocketType.Stream, ProtocolType.Tcp, args);
+//			Console.Error.WriteLine ($"PENDING: {pending}");
+//			Thread.Sleep (25000);
+//			return;
 
-			var pending = socket.ConnectAsync (socketArgs);
-			Console.Error.WriteLine ($"PENDING: {pending}");
-
-			var res = mre.WaitOne (10000);
-			Console.Error.WriteLine ($"RESULT: {res}");
+			var socket = new Socket (SocketType.Stream, ProtocolType.Tcp);
+			socket.Connect (endPoint);
 		}
 
+		private static void Args_Completed (object sender, SocketAsyncEventArgs e)
+		{
+			Console.Error.WriteLine ($"COMPLETED CALLBACK: {sender} {e.SocketError} {e.ConnectByNameError}");
+		}
+
+		static void TestHttpListener ()
+		{
+			var listener = new HttpListener ();
+			listener.Prefixes.Add ("http://*:8080/");
+
+			listener.Start ();
+			var context = listener.GetContext ();
+
+			var response = context.Response;
+			response.Headers.Add ("X-Custom-Header", "A");
+			response.Headers.Add ("X-Custom-Header", "B");
+
+			response.Close ();
+		}
 	}
 }
