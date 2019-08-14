@@ -20,7 +20,7 @@ namespace DotNetTest
 
 		public static void Run ()
 		{
-			TestHttpListener ();
+			Test1 ();
 		}
 
 		static Task TestHttpClient ()
@@ -281,5 +281,107 @@ namespace DotNetTest
 			return clientEndPoint;
 		}
 
+		public static void Test_MultipleClosesOnOuputStreamAllowed ()
+		{
+			var _listener = NetworkHelpers.CreateAndStartHttpListener ("http://127.0.0.1:", out var port, "/MultipleCloses/");
+			NetworkStream ns = CreateNS (port);
+			Send (ns, "GET /MultipleCloses/ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+
+			HttpListenerContext ctx = _listener.GetContext ();
+			ctx.Response.OutputStream.Close ();
+			ctx.Response.OutputStream.Close ();
+			ctx.Response.OutputStream.Close ();
+			ctx.Response.Close ();
+		}
+
+		public class MyNetworkStream : NetworkStream
+		{
+			public MyNetworkStream (Socket sock) : base (sock, true)
+			{
+			}
+
+			public Socket GetSocket ()
+			{
+				return Socket;
+			}
+		}
+
+		public static MyNetworkStream CreateNS (int port)
+		{
+			return CreateNS (IPAddress.Loopback, port, 5000);
+		}
+
+		public static MyNetworkStream CreateNS (int port, int timeout_ms)
+		{
+			return CreateNS (IPAddress.Loopback, port, timeout_ms);
+		}
+
+		public static MyNetworkStream CreateNS (IPAddress ip, int port)
+		{
+			return CreateNS (ip, port, 5000);
+		}
+
+		public static MyNetworkStream CreateNS (IPAddress ip, int port, int timeout_ms)
+		{
+			Socket sock = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			sock.Connect (new IPEndPoint (ip, port));
+			sock.SendTimeout = timeout_ms;
+			sock.ReceiveTimeout = timeout_ms;
+			return new MyNetworkStream (sock);
+		}
+
+
+		public static void Send (Stream stream, string str)
+		{
+			byte[] bytes = Encoding.ASCII.GetBytes (str);
+			stream.Write (bytes, 0, bytes.Length);
+		}
+
+		public static string Receive (Stream stream, int size)
+		{
+			byte[] bytes = new byte[size];
+			int nread = stream.Read (bytes, 0, size);
+			return Encoding.ASCII.GetString (bytes, 0, nread);
+		}
+
+		public static string ReceiveWithTimeout (Stream stream, int size, int timeout, out bool timed_out)
+		{
+			byte[] bytes = new byte[size];
+			IAsyncResult ares = stream.BeginRead (bytes, 0, size, null, null);
+			timed_out = !ares.AsyncWaitHandle.WaitOne (timeout, false);
+			if (timed_out)
+				return null;
+			int nread = stream.EndRead (ares);
+			return Encoding.ASCII.GetString (bytes, 0, nread);
+		}
+
+		public static void PropertiesWhenClosedSet5 ()
+		{
+			HttpListener listener = new HttpListener ();
+			listener.Close ();
+		}
+
+		public static void Test1 ()
+		{
+			var _listener = NetworkHelpers.CreateAndStartHttpListener ("http://127.0.0.1:", out var port, "/test1/");
+			NetworkStream ns = CreateNS (port);
+			Send (ns, "GET / HTTP/1.1\r\n\r\n"); // No host
+			string response = Receive (ns, 512);
+			Console.Error.WriteLine ($"RESPONSE: |{response}|");
+			ns.Close ();
+			Console.Error.WriteLine ($"RESPONSE #1: |{response}|");
+			Test2 ();
+		}
+
+		public static void Test2 ()
+		{
+			var _listener = NetworkHelpers.CreateAndStartHttpListener ("http://127.0.0.1:", out var port, "/test1/");
+			NetworkStream ns = CreateNS (port);
+			Send (ns, "GET / HTTP/1.1\r\n\r\n"); // No host
+			string response = Receive (ns, 512);
+			Console.Error.WriteLine ($"RESPONSE: |{response}|");
+			ns.Close ();
+			Console.Error.WriteLine ($"RESPONSE #1: |{response}|");
+		}
 	}
 }
