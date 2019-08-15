@@ -370,7 +370,6 @@ namespace DotNetTest
 			Console.Error.WriteLine ($"RESPONSE: |{response}|");
 			ns.Close ();
 			Console.Error.WriteLine ($"RESPONSE #1: |{response}|");
-			Test2 ();
 		}
 
 		public static void Test2 ()
