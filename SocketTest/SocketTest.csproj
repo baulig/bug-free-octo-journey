@@ -43,7 +43,6 @@
     <Compile Include="..\DotNetTest\MartinTest.cs">
       <Link>MartinTest.cs</Link>
     </Compile>
-    <Compile Include="TestTcpClient.cs" />
     <Compile Include="..\DotNetTest\NetworkHelpers.cs">
       <Link>NetworkHelpers.cs</Link>
     </Compile>
