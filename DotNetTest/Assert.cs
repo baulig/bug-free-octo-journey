@@ -13,5 +13,11 @@ namespace DotNetTest
 		{
 			throw new NotSupportedException ($"ASSERTION FAILED: {message}");
 		}
+
+		public static void True (bool condition, string message = "condition is false")
+		{
+			if (!condition)
+				Fail (message);
+		}
 	}
 }

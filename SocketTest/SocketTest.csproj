@@ -46,6 +46,12 @@
     <Compile Include="..\DotNetTest\NetworkHelpers.cs">
       <Link>NetworkHelpers.cs</Link>
     </Compile>
+    <Compile Include="..\DotNetTest\TestSettings.cs">
+      <Link>TestSettings.cs</Link>
+    </Compile>
+    <Compile Include="..\DotNetTest\SocketTestExtensions.cs">
+      <Link>SocketTestExtensions.cs</Link>
+    </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
