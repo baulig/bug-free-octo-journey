@@ -23,7 +23,8 @@ namespace DotNetTest
 
 		public static void Run ()
 		{
-			DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress.Loopback, false);
+			// DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress.Loopback, false);
+			DualModeConnectAsync_DnsEndPointToHost_Helper (IPAddress.Loopback, false);
 		}
 
 		public static void DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
@@ -45,6 +46,28 @@ namespace DotNetTest
 				}
 				Assert.True (args.ConnectSocket.Connected);
 				args.ConnectSocket.Dispose ();
+			}
+		}
+
+		public static void DualModeConnectAsync_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
+		{
+			using (Socket socket = new Socket (SocketType.Stream, ProtocolType.Tcp))
+			using (SocketServer server = new SocketServer (_log, listenOn, dualModeServer, out int port)) {
+				ManualResetEvent waitHandle = new ManualResetEvent (false);
+				SocketAsyncEventArgs args = new SocketAsyncEventArgs ();
+				args.Completed += new EventHandler<SocketAsyncEventArgs> (AsyncCompleted);
+				args.RemoteEndPoint = new DnsEndPoint ("localhost", port);
+				args.UserToken = waitHandle;
+
+				bool pending = socket.ConnectAsync (args);
+				if (!pending)
+					waitHandle.Set ();
+
+				Assert.True (waitHandle.WaitOne (TestSettings.PassingTestTimeout), "Timed out while waiting for connection");
+				if (args.SocketError != SocketError.Success) {
+					throw new SocketException ((int)args.SocketError);
+				}
+				Assert.True (socket.Connected);
 			}
 		}
 
