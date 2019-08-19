@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
 using MonoTests.Helpers;
+using System.Net.Test.Common;
 
 namespace DotNetTest
 {
@@ -21,10 +22,9 @@ namespace DotNetTest
 
 		static readonly ITestOutputHelper _log = new ITestOutputHelper ();
 
-		public static void Run ()
+		public static async Task Run ()
 		{
-			// DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress.Loopback, false);
-			DualModeConnectAsync_DnsEndPointToHost_Helper (IPAddress.Loopback, false);
+			await Connect_Success (IPAddress.Loopback).ConfigureAwait (false);
 		}
 
 		public static void DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
@@ -209,5 +209,21 @@ namespace DotNetTest
 				handle.Set ();
 			}
 		}
+
+		public static async Task Connect_Success (IPAddress listenAt)
+		{
+			int port;
+			using (SocketTestServer.SocketTestServerFactory (SocketImplementationType.Async, listenAt, out port)) {
+				using (Socket client = new Socket (listenAt.AddressFamily, SocketType.Stream, ProtocolType.Tcp)) {
+					Task connectTask = ConnectAsync (client, new IPEndPoint (listenAt, port));
+					await connectTask;
+					Assert.True (client.Connected);
+				}
+			}
+
+			Task ConnectAsync (Socket s, EndPoint endPoint) =>
+				Task.Run (() => { s.ForceNonBlocking (true); s.Connect (endPoint); });
+		}
+
 	}
 }

@@ -5,4 +5,21 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Include="..\SocketTest\CoreFX\SocketImplementationType.cs">
+      <Link>CoreFX\SocketImplementationType.cs</Link>
+    </Compile>
+    <Compile Include="..\SocketTest\CoreFX\SocketTestServer.cs">
+      <Link>CoreFX\SocketTestServer.cs</Link>
+    </Compile>
+    <Compile Include="..\SocketTest\CoreFX\SocketTestServerAsync.cs">
+      <Link>CoreFX\SocketTestServerAsync.cs</Link>
+    </Compile>
+    <Compile Include="..\SocketTest\CoreFX\SocketTestServerAPM.cs">
+      <Link>CoreFX\SocketTestServerAPM.cs</Link>
+    </Compile>
+    <Compile Include="..\SocketTest\CoreFX\VerboseTestLogging.cs">
+      <Link>CoreFX\VerboseTestLogging.cs</Link>
+    </Compile>
+  </ItemGroup>
 </Project>

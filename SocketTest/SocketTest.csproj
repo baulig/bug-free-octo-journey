@@ -46,12 +46,20 @@
     <Compile Include="..\DotNetTest\NetworkHelpers.cs">
       <Link>NetworkHelpers.cs</Link>
     </Compile>
-    <Compile Include="..\DotNetTest\TestSettings.cs">
-      <Link>TestSettings.cs</Link>
-    </Compile>
+    <Compile Include="CoreFX\SocketImplementationType.cs" />
     <Compile Include="..\DotNetTest\SocketTestExtensions.cs">
-      <Link>SocketTestExtensions.cs</Link>
+      <Link>CoreFX\SocketTestExtensions.cs</Link>
     </Compile>
+    <Compile Include="CoreFX\SocketTestServer.cs" />
+    <Compile Include="CoreFX\SocketTestServerAPM.cs" />
+    <Compile Include="CoreFX\SocketTestServerAsync.cs" />
+    <Compile Include="..\DotNetTest\TestSettings.cs">
+      <Link>CoreFX\TestSettings.cs</Link>
+    </Compile>
+    <Compile Include="CoreFX\VerboseTestLogging.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="CoreFX\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

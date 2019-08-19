@@ -44,11 +44,9 @@ namespace SocketTest
 {
 	class MainClass
 	{
-		public static void Main ()
+		public static Task Main ()
 		{
-			// TestSocket ();
-			DotNetTest.MartinTest.Run ();
-			// DotNetTest.TestTcpClient.Run ();
+			return DotNetTest.MartinTest.Run ();
 		}
 
 		static void TestSocket ()

@@ -1,4 +1,4 @@
-namespace DotNetTest
+namespace System.Net.Test.Common
 {
 	static class TestSettings
 	{
