@@ -28,6 +28,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -46,6 +47,8 @@ namespace SocketTest
 	{
 		public static Task Main ()
 		{
+			Debug.Listeners.Add (new TextWriterTraceListener (Console.Out));
+			Debug.WriteLine ($"MAIN!");
 			return DotNetTest.MartinTest.Run ();
 		}
 

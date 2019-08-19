@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Net.Sockets.Tests;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -212,18 +213,24 @@ namespace DotNetTest
 
 		public static async Task Connect_Success (IPAddress listenAt)
 		{
+			Debug.WriteLine ($"HELLO WORLD!");
 			int port;
 			using (SocketTestServer.SocketTestServerFactory (SocketImplementationType.Async, listenAt, out port)) {
 				using (Socket client = new Socket (listenAt.AddressFamily, SocketType.Stream, ProtocolType.Tcp)) {
-					Task connectTask = ConnectAsync (client, new IPEndPoint (listenAt, port));
-					await connectTask;
+					client.ForceNonBlocking (true);
+					var endPoint = new IPEndPoint (listenAt, port);
+					client.Connect (endPoint);
+					//					Task connectTask = ConnectAsync (client, new IPEndPoint (listenAt, port));
+					//					await connectTask;
+					Console.Error.WriteLine ($"CONNECT SUCCESS: {client.Connected}");
 					Assert.True (client.Connected);
 				}
 			}
 
+			Console.Error.WriteLine ($"TEST DONE!");
+
 			Task ConnectAsync (Socket s, EndPoint endPoint) =>
 				Task.Run (() => { s.ForceNonBlocking (true); s.Connect (endPoint); });
 		}
-
 	}
 }
