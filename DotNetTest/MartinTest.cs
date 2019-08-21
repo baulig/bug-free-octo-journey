@@ -23,9 +23,11 @@ namespace DotNetTest
 
 		static readonly ITestOutputHelper _log = new ITestOutputHelper ();
 
-		public static async Task Run ()
+		public static Task Run ()
 		{
-			await Connect_Success (IPAddress.Loopback).ConfigureAwait (false);
+			// DualModeConnect_IPAddressListToHost_Success (new IPAddress[] { IPAddress.Loopback, IPAddress.IPv6Loopback }, IPAddress.IPv6Loopback, false);
+			return Connect_Success (IPAddress.IPv6Loopback);
+			// return Receive0ByteReturns_WhenPeerDisconnects ();
 		}
 
 		public static void DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
@@ -220,8 +222,8 @@ namespace DotNetTest
 					client.ForceNonBlocking (true);
 					var endPoint = new IPEndPoint (listenAt, port);
 					client.Connect (endPoint);
-					//					Task connectTask = ConnectAsync (client, new IPEndPoint (listenAt, port));
-					//					await connectTask;
+					// Task connectTask = ConnectAsync (client, new IPEndPoint (listenAt, port));
+					// await connectTask;
 					Console.Error.WriteLine ($"CONNECT SUCCESS: {client.Connected}");
 					Assert.True (client.Connected);
 				}
@@ -232,5 +234,86 @@ namespace DotNetTest
 			Task ConnectAsync (Socket s, EndPoint endPoint) =>
 				Task.Run (() => { s.ForceNonBlocking (true); s.Connect (endPoint); });
 		}
+
+		public static void DualModeConnect_IPAddressListToHost_Success (IPAddress[] connectTo, IPAddress listenOn, bool dualModeServer)
+		{
+			using (Socket socket = new Socket (SocketType.Stream, ProtocolType.Tcp))
+			using (SocketServer server = new SocketServer (_log, listenOn, dualModeServer, out int port)) {
+				socket.Connect (connectTo, port);
+				Assert.True (socket.Connected);
+			}
+		}
+
+		public static async Task Receive0ByteReturns_WhenPeerDisconnects ()
+		{
+			using (Socket listener = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+			using (Socket client = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)) {
+				listener.Bind (new IPEndPoint (IPAddress.Loopback, 0));
+				listener.Listen (1);
+
+				Task<Socket> acceptTask = AcceptAsync (listener);
+				await Task.WhenAll (
+				    acceptTask,
+				    ConnectAsync (client, new IPEndPoint (IPAddress.Loopback, ((IPEndPoint)listener.LocalEndPoint).Port)));
+
+				using (Socket server = await acceptTask) {
+					// Have the client do a 0-byte receive.  No data is available, so this should pend.
+					Task<int> receive = ReceiveAsync (client, new ArraySegment<byte> (Array.Empty<byte> ()));
+					Assert.False (receive.IsCompleted, $"Task should not have been completed, was {receive.Status}");
+
+					// Disconnect the client
+					server.Shutdown (SocketShutdown.Both);
+					server.Close ();
+
+					// The client should now wake up
+					Assert.Equal (0, await receive);
+				}
+			}
+		}
+
+		public static Task<Socket> AcceptAsync (Socket s) =>
+		    InvokeAsync (s, e => e.AcceptSocket, e => s.AcceptAsync (e));
+		public static Task<Socket> AcceptAsync (Socket s, Socket acceptSocket) =>
+		    InvokeAsync (s, e => e.AcceptSocket, e => {
+			    e.AcceptSocket = acceptSocket;
+			    return s.AcceptAsync (e);
+		    });
+		public static Task ConnectAsync (Socket s, EndPoint endPoint) =>
+		    InvokeAsync (s, e => true, e => {
+			    e.RemoteEndPoint = endPoint;
+			    return s.ConnectAsync (e);
+		    });
+		public static Task<int> ReceiveAsync (Socket s, ArraySegment<byte> buffer) =>
+		    InvokeAsync (s, e => e.BytesTransferred, e => {
+			    e.SetBuffer (buffer.Array, buffer.Offset, buffer.Count);
+			    return s.ReceiveAsync (e);
+		    });
+		public static Task<int> ReceiveAsync (Socket s, IList<ArraySegment<byte>> bufferList) =>
+		    InvokeAsync (s, e => e.BytesTransferred, e => {
+			    e.BufferList = bufferList;
+			    return s.ReceiveAsync (e);
+		    });
+
+		private static Task<TResult> InvokeAsync<TResult> (
+		        Socket s,
+		        Func<SocketAsyncEventArgs, TResult> getResult,
+		        Func<SocketAsyncEventArgs, bool> invoke)
+		{
+			var tcs = new TaskCompletionSource<TResult> ();
+			var saea = new SocketAsyncEventArgs ();
+			EventHandler<SocketAsyncEventArgs> handler = (_, e) =>
+			{
+				if (e.SocketError == SocketError.Success)
+					tcs.SetResult (getResult (e));
+				else
+					tcs.SetException (new SocketException ((int)e.SocketError));
+				saea.Dispose ();
+			};
+			saea.Completed += handler;
+			if (!invoke (saea))
+				handler (s, saea);
+			return tcs.Task;
+		}
+
 	}
 }

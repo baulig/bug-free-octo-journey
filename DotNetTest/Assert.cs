@@ -19,5 +19,18 @@ namespace DotNetTest
 			if (!condition)
 				Fail (message);
 		}
+
+		public static void False (bool condition, string message = "condition is true")
+		{
+			if (condition)
+				Fail (message);
+		}
+
+		public static void Equal (object expected, object actual, string message = "not equal")
+		{
+			if (!object.Equals (expected, actual))
+				Fail ($"Equal({expected},{actual}): {message}");
+		}
+
 	}
 }
