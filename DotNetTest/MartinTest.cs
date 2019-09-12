@@ -12,6 +12,7 @@ using System.Collections;
 using System.Collections.Generic;
 using MonoTests.Helpers;
 using System.Net.Test.Common;
+using System.Reflection;
 
 namespace DotNetTest
 {
@@ -25,9 +26,10 @@ namespace DotNetTest
 
 		public static Task Run ()
 		{
-			// DualModeConnect_IPAddressListToHost_Success (new IPAddress[] { IPAddress.Loopback, IPAddress.IPv6Loopback }, IPAddress.IPv6Loopback, false);
-			return Connect_Success (IPAddress.IPv6Loopback);
-			// return Receive0ByteReturns_WhenPeerDisconnects ();
+			return Task.Run (() => {
+				TestFailedConnection ();
+			});
+			// return Ctor_SocketFileAccess_CanReadAndWrite ();
 		}
 
 		public static void DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
@@ -235,6 +237,79 @@ namespace DotNetTest
 				Task.Run (() => { s.ForceNonBlocking (true); s.Connect (endPoint); });
 		}
 
+		public static async Task ReadWrite_Byte_Success ()
+		{
+			await RunWithConnectedNetworkStreamsAsync (async (server, client) =>
+			{
+				for (byte i = 0; i < 10; i++) {
+					Task<int> read = Task.Run (() => client.ReadByte ());
+					Task write = Task.Run (() => server.WriteByte (i));
+					await Task.WhenAll (read, write);
+					Assert.Equal (i, await read);
+				}
+			});
+		}
+
+		public static async Task Ctor_SocketFileAccess_CanReadAndWrite ()
+		{
+			using (Socket listener = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+			using (Socket client = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)) {
+				listener.Bind (new IPEndPoint (IPAddress.Loopback, 0));
+				listener.Listen (1);
+
+				Task<Socket> acceptTask = listener.AcceptAsync ();
+				await Task.WhenAll (acceptTask, client.ConnectAsync (new IPEndPoint (IPAddress.Loopback, ((IPEndPoint)listener.LocalEndPoint).Port)));
+				using (Socket server = await acceptTask) {
+					for (int i = 0; i < 2; i++) // Verify closing the streams doesn't close the sockets
+					{
+						using (var serverStream = new NetworkStream (server, FileAccess.Write))
+						using (var clientStream = new NetworkStream (client, FileAccess.Read)) {
+							Assert.True (serverStream.CanWrite && !serverStream.CanRead);
+							Assert.True (!clientStream.CanWrite && clientStream.CanRead);
+							Assert.False (serverStream.CanSeek && clientStream.CanSeek);
+							Assert.True (serverStream.CanTimeout && clientStream.CanTimeout);
+
+							// Verify Read and Write on both streams
+							byte[] buffer = new byte[2];
+
+							var task = clientStream.ReadAsync (buffer, 1, 1);
+
+							await serverStream.WriteAsync (new byte[] { (byte)'a' }, 0, 1);
+							Assert.Equal (1, await task);
+							Assert.Equal (0, buffer[0]);
+							Assert.Equal ('a', (char)buffer[1]);
+
+							// Assert.Throws<InvalidOperationException> (() => { serverStream.BeginRead (buffer, 0, 1, null, null); });
+							// Assert.Throws<InvalidOperationException> (() => { clientStream.BeginWrite (buffer, 0, 1, null, null); });
+
+							// Assert.Throws<InvalidOperationException> (() => { serverStream.ReadAsync (buffer, 0, 1); });
+							// Assert.Throws<InvalidOperationException> (() => { clientStream.WriteAsync (buffer, 0, 1); });
+						}
+					}
+				}
+			}
+		}
+
+		public static void TestFailedConnection ()
+		{
+			try {
+				WebRequest.Create ("http://127.0.0.1:0/non-existant.txt").GetResponse ();
+				Assert.Fail ("Should have raised an exception");
+			} catch (Exception e) {
+				Assert.True (e is WebException, "Got " + e.GetType ().Name + ": " + e.Message);
+				//#if NET_2_0 e.Message == "Unable to connect to the remote server"
+				//#if NET_1_1 e.Message == "The underlying connection was closed: Unable to connect to the remote server."
+
+				Assert.Equal (WebExceptionStatus.ConnectFailure, ((WebException)e).Status);
+
+				//#if !NET_1_1 (this is not true in .NET 1.x)
+				Assert.True (e.InnerException != null);
+				// Assert.True (e.InnerException is Socks.SocketException, "InnerException should be SocketException");
+				//e.Message == "The requested address is not valid in its context 127.0.0.1:0"
+				//#endif
+			}
+		}
+
 		public static void DualModeConnect_IPAddressListToHost_Success (IPAddress[] connectTo, IPAddress listenOn, bool dualModeServer)
 		{
 			using (Socket socket = new Socket (SocketType.Stream, ProtocolType.Tcp))
@@ -314,6 +389,33 @@ namespace DotNetTest
 				handler (s, saea);
 			return tcs.Task;
 		}
+
+		static async Task RunWithConnectedNetworkStreamsAsync (Func<NetworkStream, NetworkStream, Task> func,
+			    FileAccess serverAccess = FileAccess.ReadWrite, FileAccess clientAccess = FileAccess.ReadWrite)
+		{
+			var listener = new TcpListener (IPAddress.Loopback, 0);
+			try {
+				listener.Start (1);
+				var clientEndpoint = (IPEndPoint)listener.LocalEndpoint;
+
+				using (var client = new TcpClient (clientEndpoint.AddressFamily)) {
+					Task<TcpClient> remoteTask = listener.AcceptTcpClientAsync ();
+					Task clientConnectTask = client.ConnectAsync (clientEndpoint.Address, clientEndpoint.Port);
+
+					await Task.WhenAll (remoteTask, clientConnectTask);
+
+					using (TcpClient remote = remoteTask.Result)
+					using (NetworkStream serverStream = new NetworkStream (remote.Client, serverAccess, ownsSocket: true))
+					using (NetworkStream clientStream = new NetworkStream (client.Client, clientAccess, ownsSocket: true)) {
+						await func (serverStream, clientStream);
+					}
+				}
+			} finally {
+				listener.Stop ();
+			}
+		}
+
+
 
 	}
 }

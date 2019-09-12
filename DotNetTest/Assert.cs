@@ -32,5 +32,16 @@ namespace DotNetTest
 				Fail ($"Equal({expected},{actual}): {message}");
 		}
 
+		public static void Equal (int expected, int actual, string message = "not equal")
+		{
+			if (expected != actual)
+				Fail ($"Equal({expected},{actual}): {message}");
+		}
+
+		public static void Equal (long expected, long actual, string message = "not equal")
+		{
+			if (expected != actual)
+				Fail ($"Equal({expected},{actual}): {message}");
+		}
 	}
 }
