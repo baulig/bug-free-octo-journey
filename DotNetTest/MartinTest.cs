@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using MonoTests.Helpers;
 using System.Net.Test.Common;
 using System.Reflection;
+using System.Runtime.Remoting.Messaging;
 
 namespace DotNetTest
 {
@@ -24,12 +25,13 @@ namespace DotNetTest
 
 		static readonly ITestOutputHelper _log = new ITestOutputHelper ();
 
-		public static Task Run ()
+		public static async Task Run ()
 		{
-			return Task.Run (() => {
-				TestFailedConnection ();
-			});
-			// return Ctor_SocketFileAccess_CanReadAndWrite ();
+			await Connect_Success (IPAddress.Loopback).ConfigureAwait (false);
+			Console.Error.WriteLine ($"DONE");
+			await Connect_Success (IPAddress.Loopback).ConfigureAwait (false);
+//			await ReadWrite_Array_Success ().ConfigureAwait (false);
+			Console.Error.WriteLine ($"DONE #1");
 		}
 
 		public static void DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
@@ -228,6 +230,8 @@ namespace DotNetTest
 					// await connectTask;
 					Console.Error.WriteLine ($"CONNECT SUCCESS: {client.Connected}");
 					Assert.True (client.Connected);
+
+					client.Shutdown (SocketShutdown.Both);
 				}
 			}
 
@@ -308,6 +312,23 @@ namespace DotNetTest
 				//e.Message == "The requested address is not valid in its context 127.0.0.1:0"
 				//#endif
 			}
+		}
+
+		public static void TestBeginConnectWithError ()
+		{
+			var endpoint = new IPEndPoint (IPAddress.Loopback, 0);
+			var socket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+			var result = socket.BeginConnect (endpoint, AsyncCallback, null);
+			Console.Error.WriteLine ($"BEGIN CONNECT DONE: {result}");
+
+			Thread.Sleep (TimeSpan.FromSeconds (10));
+
+			void AsyncCallback (IAsyncResult asyncResult)
+			{
+				Console.Error.WriteLine ($"ASYNC CALLBACK: {asyncResult}");
+			}
+
 		}
 
 		public static void DualModeConnect_IPAddressListToHost_Success (IPAddress[] connectTo, IPAddress listenOn, bool dualModeServer)
@@ -415,7 +436,22 @@ namespace DotNetTest
 			}
 		}
 
+		public static async Task ReadWrite_Array_Success ()
+		{
+			await RunWithConnectedNetworkStreamsAsync ((server, client) =>
+			{
+				var clientData = new byte[] { 42 };
+				client.Write (clientData, 0, clientData.Length);
 
+				var serverData = new byte[clientData.Length];
+				Assert.Equal (serverData.Length, server.Read (serverData, 0, serverData.Length));
 
+				Assert.Equal (clientData, serverData);
+
+				client.Flush (); // nop
+
+				return Task.CompletedTask;
+			});
+		}
 	}
 }

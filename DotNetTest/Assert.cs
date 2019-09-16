@@ -43,5 +43,15 @@ namespace DotNetTest
 			if (expected != actual)
 				Fail ($"Equal({expected},{actual}): {message}");
 		}
+
+		public static void Equal (byte[] expected, byte[] actual, string message = "not equal")
+		{
+			if (expected.Length != actual.Length)
+				Fail ($"Equal({expected},{actual}:length {expected.Length} != {actual.Length}): {message}");
+			for (int i = 0; i < expected.Length; i++) {
+				if (expected[i] != actual[i])
+				Fail ($"Equal({expected},{actual}:element #{i} {expected[i]} != {actual[i]}): {message}");
+			}
+		}
 	}
 }
