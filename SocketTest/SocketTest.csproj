@@ -57,6 +57,7 @@
       <Link>CoreFX\TestSettings.cs</Link>
     </Compile>
     <Compile Include="CoreFX\VerboseTestLogging.cs" />
+    <Compile Include="SocketResponder.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="CoreFX\" />

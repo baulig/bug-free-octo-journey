@@ -53,5 +53,17 @@ namespace DotNetTest
 				Fail ($"Equal({expected},{actual}:element #{i} {expected[i]} != {actual[i]}): {message}");
 			}
 		}
+
+		internal static void IsNull (object instance, string message = "not null")
+		{
+			if (instance != null)
+				Fail ($"IsNull({instance}): {message}");
+		}
+
+		internal static void IsNotNull (object instance, string message = "null")
+		{
+			if (instance == null)
+				Fail ($"IsNotNull({instance}): {message}");
+		}
 	}
 }

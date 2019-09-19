@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Net.Sockets.Tests;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,13 +26,11 @@ namespace DotNetTest
 
 		static readonly ITestOutputHelper _log = new ITestOutputHelper ();
 
-		public static async Task Run ()
+		public static Task Run ()
 		{
-			await Connect_Success (IPAddress.Loopback).ConfigureAwait (false);
-			Console.Error.WriteLine ($"DONE");
-			await Connect_Success (IPAddress.Loopback).ConfigureAwait (false);
-//			await ReadWrite_Array_Success ().ConfigureAwait (false);
-			Console.Error.WriteLine ($"DONE #1");
+			return Task.Run (() => {
+				BeginGetRequestStream_Body_NotAllowed ();
+			});
 		}
 
 		public static void DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
@@ -452,6 +451,74 @@ namespace DotNetTest
 
 				return Task.CompletedTask;
 			});
+		}
+
+		public static void BeginGetRequestStream_Body_NotAllowed ()
+		{
+			using (SocketResponder responder = new SocketResponder (out var ep, s => EchoRequestHandler (s))) {
+				string url = "http://" + ep.ToString () + "/test/";
+				HttpWebRequest request;
+
+				request = (HttpWebRequest)WebRequest.Create (url);
+				request.Method = "GET";
+
+				try {
+					var result = request.BeginGetRequestStream (null, null);
+					request.EndGetRequestStream (result);
+					Assert.Fail ("#A1");
+				} catch (ProtocolViolationException ex) {
+					// Cannot send a content-body with this
+					// verb-type
+					Assert.IsNull (ex.InnerException, "#A2");
+					Assert.IsNotNull (ex.Message, "#A3");
+				}
+
+				request = (HttpWebRequest)WebRequest.Create (url);
+				request.Method = "HEAD";
+
+				try {
+					var res = request.BeginGetRequestStream (null, null);
+					request.EndGetRequestStream (res);
+					Assert.Fail ("#B1");
+				} catch (ProtocolViolationException ex) {
+					// Cannot send a content-body with this
+					// verb-type
+					Assert.IsNull (ex.InnerException, "#B2");
+					Assert.IsNotNull (ex.Message, "#B3");
+				}
+			}
+		}
+
+		internal static byte[] EchoRequestHandler (Socket socket)
+		{
+			MemoryStream ms = new MemoryStream ();
+			byte[] buffer = new byte[4096];
+			int bytesReceived = socket.Receive (buffer);
+			while (bytesReceived > 0) {
+				ms.Write (buffer, 0, bytesReceived);
+				// We don't check for Content-Length or anything else here, so we give the client a little time to write
+				// after sending the headers
+				Thread.Sleep (200);
+				if (socket.Available > 0) {
+					bytesReceived = socket.Receive (buffer);
+				} else {
+					bytesReceived = 0;
+				}
+			}
+			ms.Flush ();
+			ms.Position = 0;
+			StreamReader sr = new StreamReader (ms, Encoding.UTF8);
+			string request = sr.ReadToEnd ();
+
+			StringWriter sw = new StringWriter ();
+			sw.WriteLine ("HTTP/1.1 200 OK");
+			sw.WriteLine ("Content-Type: text/xml");
+			sw.WriteLine ("Content-Length: " + request.Length.ToString (CultureInfo.InvariantCulture));
+			sw.WriteLine ();
+			sw.Write (request);
+			sw.Flush ();
+
+			return Encoding.UTF8.GetBytes (sw.ToString ());
 		}
 	}
 }
