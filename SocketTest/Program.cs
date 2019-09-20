@@ -48,11 +48,18 @@ namespace SocketTest
 	class MainClass
 	{
 #if !FIXME
-		public static Task Main ()
+		public static async Task Main ()
 		{
 			Debug.Listeners.Add (new TextWriterTraceListener (Console.Out));
 			Debug.WriteLine ($"MAIN!");
-			return DotNetTest.MartinTest.Run ();
+			try {
+				await DotNetTest.MartinTest.Run ().ConfigureAwait (false);
+			} catch (Exception ex) {
+				Debug.WriteLine ($"MAIN ERROR: {ex}");
+				throw;
+			} finally {
+				Debug.WriteLine ($"MAIN DONE");
+			}
 		}
 #else
 		public static void Main ()

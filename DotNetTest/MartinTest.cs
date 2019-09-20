@@ -486,39 +486,58 @@ namespace DotNetTest
 					Assert.IsNull (ex.InnerException, "#B2");
 					Assert.IsNotNull (ex.Message, "#B3");
 				}
+
+				Console.Error.WriteLine ($"TEST DONE");
 			}
+
+			Console.Error.WriteLine ($"TEST DONE #1");
 		}
 
 		internal static byte[] EchoRequestHandler (Socket socket)
 		{
+			Console.Error.WriteLine ($"ERH!");
 			MemoryStream ms = new MemoryStream ();
 			byte[] buffer = new byte[4096];
-			int bytesReceived = socket.Receive (buffer);
-			while (bytesReceived > 0) {
-				ms.Write (buffer, 0, bytesReceived);
-				// We don't check for Content-Length or anything else here, so we give the client a little time to write
-				// after sending the headers
-				Thread.Sleep (200);
-				if (socket.Available > 0) {
-					bytesReceived = socket.Receive (buffer);
-				} else {
-					bytesReceived = 0;
+			try {
+				int bytesReceived = socket.Receive (buffer);
+				Console.Error.WriteLine ($"ERH #1: {bytesReceived}");
+				while (bytesReceived > 0) {
+					Console.Error.WriteLine ($"ERH #1a: {bytesReceived}");
+					ms.Write (buffer, 0, bytesReceived);
+					// We don't check for Content-Length or anything else here, so we give the client a little time to write
+					// after sending the headers
+					Console.Error.WriteLine ($"ERH #2: {bytesReceived} {socket.Available}");
+					Thread.Sleep (200);
+					if (socket.Available > 0) {
+						bytesReceived = socket.Receive (buffer);
+					} else {
+						bytesReceived = 0;
+					}
+					Console.Error.WriteLine ($"ERH #3: {bytesReceived}");
 				}
+
+				Console.Error.WriteLine ($"ERH #4");
+
+				ms.Flush ();
+				ms.Position = 0;
+				StreamReader sr = new StreamReader (ms, Encoding.UTF8);
+				string request = sr.ReadToEnd ();
+
+				StringWriter sw = new StringWriter ();
+				sw.WriteLine ("HTTP/1.1 200 OK");
+				sw.WriteLine ("Content-Type: text/xml");
+				sw.WriteLine ("Content-Length: " + request.Length.ToString (CultureInfo.InvariantCulture));
+				sw.WriteLine ();
+				sw.Write (request);
+				sw.Flush ();
+
+				Console.Error.WriteLine ($"ERH DONE!");
+
+				return Encoding.UTF8.GetBytes (sw.ToString ());
+			} catch (Exception ex) {
+				Console.Error.WriteLine ($"ERH EX: {ex}");
+				throw;
 			}
-			ms.Flush ();
-			ms.Position = 0;
-			StreamReader sr = new StreamReader (ms, Encoding.UTF8);
-			string request = sr.ReadToEnd ();
-
-			StringWriter sw = new StringWriter ();
-			sw.WriteLine ("HTTP/1.1 200 OK");
-			sw.WriteLine ("Content-Type: text/xml");
-			sw.WriteLine ("Content-Length: " + request.Length.ToString (CultureInfo.InvariantCulture));
-			sw.WriteLine ();
-			sw.Write (request);
-			sw.Flush ();
-
-			return Encoding.UTF8.GetBytes (sw.ToString ());
 		}
 	}
 }

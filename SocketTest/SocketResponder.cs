@@ -27,6 +27,7 @@
 //
 
 using System;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -77,6 +78,8 @@ namespace MonoTests.Helpers
 
 		public void Dispose ()
 		{
+			Console.Error.WriteLine ($"SR DISPOSE: {disposed}");
+
 			if (disposed)
 				return;
 
@@ -84,8 +87,12 @@ namespace MonoTests.Helpers
 
 			tcpListener.Stop ();
 
-			if (listenSocket != null)
+			Console.Error.WriteLine ($"SR DISPOSE #1: {listenSocket}");
+
+			if (listenSocket != null) {
 				listenSocket.Close ();
+				listenSocket.Dispose ();
+			}
 
 			if (!listenTask.Wait (5000))
 				throw new SocketResponderException ("Failed to stop in less than 5 seconds");
@@ -94,23 +101,27 @@ namespace MonoTests.Helpers
 		private void Listen ()
 		{
 			while (!disposed) {
+				Console.Error.WriteLine ($"SR LISTEN");
 				listenSocket = null;
 				try {
 					listenSocket = tcpListener.AcceptSocket ();
+					Console.Error.WriteLine ($"SR LISTEN #1: {listenSocket}");
 					listenSocket.Send (requestHandler (listenSocket));
 					try {
 						// On Windows a Receive() is needed here before Shutdown() to consume the data some tests send.
 						listenSocket.ReceiveTimeout = 10 * 1000;
-						listenSocket.Receive (new byte [0]);
+						listenSocket.Receive (new byte[0]);
 						listenSocket.Shutdown (SocketShutdown.Send);
 						listenSocket.Shutdown (SocketShutdown.Receive);
 					} catch {
 					}
 				} catch (SocketException ex) {
+					Console.Error.WriteLine ($"SR LISTEN SE: {ex.ErrorCode}");
 					// ignore interruption of blocking call
 					if (ex.ErrorCode != SOCKET_CLOSED && ex.ErrorCode != SOCKET_INVALID_ARGS && !disposed)
 						throw;
 				} catch (ObjectDisposedException ex) {
+					Console.Error.WriteLine ($"SR LISTEN - DISPOSED EX: {disposed}");
 					if (!disposed)
 						throw;
 #if MOBILE
@@ -121,7 +132,11 @@ namespace MonoTests.Helpers
 					Console.WriteLine ("SocketResponder.Listen failed:");
 					Console.WriteLine (ex);
 #endif
-				} finally {
+				} catch (Exception ex) {
+					Console.Error.WriteLine ($"SR LISTEN ERROR: {ex}");
+					throw;
+	 			} finally {
+					Console.Error.WriteLine ($"SR LISTEN FINALLY");
 					if (listenSocket != null)
 						listenSocket.Close ();
 				}
