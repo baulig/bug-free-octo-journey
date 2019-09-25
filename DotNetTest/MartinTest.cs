@@ -14,7 +14,8 @@ using System.Collections.Generic;
 using MonoTests.Helpers;
 using System.Net.Test.Common;
 using System.Reflection;
-using System.Runtime.Remoting.Messaging;
+using System.Security.Cryptography.X509Certificates;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace DotNetTest
 {
@@ -28,9 +29,8 @@ namespace DotNetTest
 
 		public static Task Run ()
 		{
-			return Task.Run (() => {
-				BeginGetRequestStream_Body_NotAllowed ();
-			});
+			JoinMulticastGroup3_IPv6 ();
+			return Task.CompletedTask;
 		}
 
 		public static void DualModeConnectAsync_Static_DnsEndPointToHost_Helper (IPAddress listenOn, bool dualModeServer)
@@ -244,12 +244,29 @@ namespace DotNetTest
 		{
 			await RunWithConnectedNetworkStreamsAsync (async (server, client) =>
 			{
-				for (byte i = 0; i < 10; i++) {
+				for (byte i = 0; i < 2; i++) {
 					Task<int> read = Task.Run (() => client.ReadByte ());
 					Task write = Task.Run (() => server.WriteByte (i));
 					await Task.WhenAll (read, write);
 					Assert.Equal (i, await read);
 				}
+				Console.Error.WriteLine ("TEST DONE");
+			});
+		}
+
+		public static async Task Exit_During_Read ()
+		{
+			await RunWithConnectedNetworkStreamsAsync (async (server, client) => {
+				for (byte i = 0; i < 2; i++) {
+					Task<int> read = Task.Run (() => client.ReadByte ());
+					Task sleep = Task.Delay (TimeSpan.FromSeconds (5));
+					sleep.ContinueWith (_ => {
+						Environment.Exit (255);
+					});
+					await Task.WhenAll (read, sleep);
+					Assert.Equal (i, await read);
+				}
+				Console.Error.WriteLine ("TEST DONE");
 			});
 		}
 
@@ -539,5 +556,46 @@ namespace DotNetTest
 				throw;
 			}
 		}
+
+		public static void DisposeDuringAccept ()
+		{
+			var socket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			socket.Bind (new IPEndPoint (IPAddress.Loopback, 8888));
+			socket.Listen (1);
+
+			ThreadPool.QueueUserWorkItem (_ => {
+				Console.WriteLine ($"LISTENING");
+				try {
+					var accepted = socket.Accept ();
+					Console.WriteLine ($"ACCEPTED: {accepted}");
+				} catch (Exception ex) {
+					Console.WriteLine ($"ACCEPT EX: {ex}");
+				}
+			});
+
+			Thread.Sleep (1500);
+
+			socket.Dispose ();
+
+			Console.WriteLine ($"DISPOSE DONE!");
+ 
+			Thread.Sleep (TimeSpan.FromSeconds (15));
+		}
+
+		public static void JoinMulticastGroup3_IPv6 ()
+		{
+			IPAddress mcast_addr = IPAddress.Parse ("ff02::1");
+
+			using (UdpClient client = new UdpClient (new IPEndPoint (IPAddress.IPv6Any, 0))) {
+				client.JoinMulticastGroup (mcast_addr, 0);
+			}
+
+			using (UdpClient client = new UdpClient (new IPEndPoint (IPAddress.IPv6Any, 0))) {
+				client.JoinMulticastGroup (mcast_addr, 255);
+			}
+
+			Console.Error.WriteLine ("TEST DONE");
+		}
+
 	}
 }

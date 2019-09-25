@@ -21,5 +21,8 @@
     <Compile Include="..\SocketTest\CoreFX\VerboseTestLogging.cs">
       <Link>CoreFX\VerboseTestLogging.cs</Link>
     </Compile>
+    <Compile Include="..\SocketTest\CoreFX\SocketResponder.cs">
+      <Link>CoreFX\SocketResponder.cs</Link>
+    </Compile>
   </ItemGroup>
 </Project>

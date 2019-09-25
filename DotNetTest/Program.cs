@@ -11,7 +11,9 @@ namespace DotNetTest
 	{
 		public static void Main ()
 		{
+			Console.Error.WriteLine ("MAIN");
 			MartinTest.Run ();
+			Console.Error.WriteLine ("MAIN DONE");
 		}
 	}
 }
